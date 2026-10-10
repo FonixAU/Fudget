@@ -2,11 +2,14 @@
 
 const PER_YEAR = { weekly: 52, fortnightly: 26, monthly: 12, quarterly: 4, yearly: 1 };
 
-export function toMonthly(amount, cycle) {
+function perYear(cycle) {
   const n = PER_YEAR[cycle.trim().toLowerCase()];
   if (!n) throw new Error(`Unknown Cycle: "${cycle}"`);
-  return (amount * n) / 12;
+  return n;
 }
+
+export const toMonthly = (amount, cycle) => (amount * perYear(cycle)) / 12;
+export const fromMonthly = (amount, cycle) => (amount * 12) / perYear(cycle);
 
 // Divide a Shared Cost between Members. incomes: { member: monthly Income }.
 export function splitCost(amount, incomes, method) {
@@ -19,8 +22,9 @@ export function splitCost(amount, incomes, method) {
 
 // Flow every entry, converted to monthly, into Household and Member totals.
 // entry: { kind: 'income'|'cost'|'saving', owner: Member name or null for Shared, amount, cycle }.
-// Shared Income stays at Household level; Shared Costs and Savings Goals reach Members via the Split.
-export function summarize(entries, split) {
+// Shared Costs and Savings Goals reach Members via `split`; Shared Income via `sharedIncome`
+// ('none' keeps it at Household level). Splits weigh Members by their own Income only.
+export function summarize(entries, { split, sharedIncome = 'none' }) {
   const blank = () => ({ income: 0, costs: 0, savings: 0, leftOver: 0 });
   const household = blank(), members = {};
   const field = { income: 'income', cost: 'costs', saving: 'savings' };
@@ -32,8 +36,9 @@ export function summarize(entries, split) {
   }
   const incomes = Object.fromEntries(Object.entries(members).map(([m, t]) => [m, t.income]));
   for (const e of monthly) {
-    if (e.owner || e.kind === 'income') continue;
-    for (const [m, share] of Object.entries(splitCost(e.amount, incomes, split))) members[m][field[e.kind]] += share;
+    if (e.owner) continue;
+    const method = e.kind === 'income' ? sharedIncome : split;
+    for (const [m, share] of Object.entries(splitCost(e.amount, incomes, method))) members[m][field[e.kind]] += share;
   }
   for (const t of [household, ...Object.values(members)]) t.leftOver = t.income - t.costs - t.savings;
   return { household, members };

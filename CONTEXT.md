@@ -19,7 +19,7 @@ Money coming in. Belongs to one Member, or is Shared Income.
 _Avoid_: Earnings, pay, salary
 
 **Shared Income**:
-Income that belongs to the Household but to no single Member, e.g. rent received or family benefits.
+Income that belongs to the Household but to no single Member, e.g. rent received or family benefits. Stays at Household level unless shared out to Members by a Split.
 _Avoid_: Joint income, other income
 
 **Household Income**:
@@ -40,7 +40,7 @@ A Cost the Household pays together, divided between Members by a Split.
 _Avoid_: Joint expense, household bill
 
 **Split**:
-How a Shared Cost is divided between Members: by Income share, equally, or not at all (left at Household level).
+How a Shared Cost or Shared Income is divided between Members: by Income share, equally, or not at all (left at Household level).
 
 **Savings Goal**:
 A target amount to put aside, measured against Income like a Cost.

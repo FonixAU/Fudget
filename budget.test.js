@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toMonthly, splitCost, summarize } from './budget.js';
+import { toMonthly, fromMonthly, splitCost, summarize } from './budget.js';
 
 test('toMonthly converts each Cycle to a monthly amount', () => {
   assert.deepEqual(
@@ -34,11 +34,30 @@ test('summarize flows Income through Costs, Savings Goals and Splits to Left Ove
     { kind: 'cost', owner: 'Alex', amount: 50, cycle: 'monthly' },
     { kind: 'saving', owner: null, amount: 1200, cycle: 'yearly' }, // 100/month, split 60/40
   ];
-  assert.deepEqual(summarize(entries, 'income'), {
+  assert.deepEqual(summarize(entries, { split: 'income' }), {
     household: { income: 10500, costs: 2050, savings: 100, leftOver: 8350 },
     members: {
       Alex: { income: 6000, costs: 1250, savings: 60, leftOver: 4690 },
       Sam: { income: 4000, costs: 800, savings: 40, leftOver: 3160 },
     },
   });
+});
+
+test('summarize can share Shared Income out to Members by the chosen Split', () => {
+  const entries = [
+    { kind: 'income', owner: 'Alex', amount: 6000, cycle: 'monthly' },
+    { kind: 'income', owner: 'Sam', amount: 4000, cycle: 'monthly' },
+    { kind: 'income', owner: null, amount: 500, cycle: 'monthly' },
+  ];
+  const { household, members } = summarize(entries, { split: 'income', sharedIncome: 'equal' });
+  assert.equal(household.income, 10500);
+  assert.equal(members.Alex.income, 6250);
+  assert.equal(members.Sam.leftOver, 4250);
+});
+
+test('fromMonthly shows a monthly amount in any Cycle', () => {
+  assert.deepEqual(
+    ['weekly', 'fortnightly', 'monthly', 'quarterly', 'yearly'].map(c => fromMonthly(5200, c)),
+    [1200, 2400, 5200, 15600, 62400],
+  );
 });
