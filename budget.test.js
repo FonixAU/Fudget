@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toMonthly, fromMonthly, splitCost, summarize } from './budget.js';
+import { toMonthly, fromMonthly, splitCost, summarize, takeHome } from './budget.js';
 
 test('toMonthly converts each Cycle to a monthly amount', () => {
   assert.deepEqual(
@@ -60,4 +60,20 @@ test('fromMonthly shows a monthly amount in any Cycle', () => {
     ['weekly', 'fortnightly', 'monthly', 'quarterly', 'yearly'].map(c => fromMonthly(5200, c)),
     [1200, 2400, 5200, 15600, 62400],
   );
+});
+
+test('takeHome runs a Salary Package through super, tax, LITO, Medicare and HECS for a tax year', () => {
+  assert.deepEqual(takeHome({ salaryPackage: 112000, hecs: true }, '2026-27'), {
+    base: 100000, superGross: 12000, superNet: 10200, tax: 20520, lito: 0, medicare: 2000, hecs: 4950, takeHome: 72530,
+  });
+});
+
+test('takeHome never pays out LITO beyond the tax owed, so no income means no tax', () => {
+  assert.equal(takeHome({ salaryPackage: 0 }, '2026-27').takeHome, 0);
+  assert.equal(takeHome({ salaryPackage: 33600 }, '2026-27').takeHome, 28330); // 1770 tax - 700 LITO - 600 Medicare
+});
+
+test('takeHome with Salary Sacrifice lowers taxable income and moves the money into super', () => {
+  const r = takeHome({ salaryPackage: 112000, hecs: true, sacrifice: 500 }, '2026-27');
+  assert.deepEqual([r.tax, r.medicare, r.hecs, r.takeHome, r.superGross, r.superNet], [18720, 1880, 4950, 68450, 18000, 15300]);
 });
