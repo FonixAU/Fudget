@@ -14,6 +14,20 @@ _Avoid_: Individual, person, user
 
 ## Money in
 
+**Salary Package**:
+A Member's yearly pay including employer super, as quoted by their employer.
+_Avoid_: Gross, salary
+
+**Take-home**:
+What reaches a Member's bank after super, income tax, the low income tax offset, Medicare levy and HECS/HELP. A Member's Income in the budget is their Take-home.
+_Avoid_: Net pay, after-tax
+
+**Salary Sacrifice**:
+Part of a Member's pay sent to super before tax, lowering Take-home but adding more to super.
+
+**FHSS**:
+First Home Super Saver: Salary Sacrifice that can later be released from super toward a first home deposit.
+
 **Income**:
 Money coming in. Belongs to one Member, or is Shared Income.
 _Avoid_: Earnings, pay, salary
@@ -42,9 +56,22 @@ _Avoid_: Joint expense, household bill
 **Split**:
 How a Shared Cost or Shared Income is divided between Members: by Income share, equally, or not at all (left at Household level).
 
+**Allocation**:
+A monthly Household amount set aside after Costs, split like a Shared Cost. Spending Allocations count as Costs; saving ones are Savings Goals.
+_Avoid_: Bucket, envelope
+
 **Savings Goal**:
 A target amount to put aside, measured against Income like a Cost.
 
 **Left Over**:
 Income minus Costs and Savings Goals, for the Household or for one Member.
 _Avoid_: Surplus, remaining, balance
+
+## Planning
+
+**Variation**:
+One complete version of the budget's Costs, Allocations and settings, compared side by side with others.
+_Avoid_: Scenario, version, budget copy
+
+**Offset**:
+Savings held against the mortgage so the balance in it attracts no interest, while staying available to withdraw.

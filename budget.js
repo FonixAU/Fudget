@@ -128,7 +128,7 @@ const pmt = (loan, rate, years) => {
 };
 export const repayment = (loan, rate, years) => cents(pmt(loan, rate, years));
 // Month-by-month loan with optional extra repayments and monthly deposits into an offset account.
-// Ends when the offset can clear the balance. `left` is what stays in the offset after paying out.
+// Ends when the offset can clear the balance; `offset` is the cash built up there by then.
 export function payoff({ loan, rate, years, extra = 0, offset = 0 }) {
   const pay = pmt(loan, rate, years), r = rate / 12;
   let bal = loan, off = 0, interest = 0, months = 0;
@@ -139,5 +139,11 @@ export function payoff({ loan, rate, years, extra = 0, offset = 0 }) {
     off += offset;
     months++;
   }
-  return { months, interest: cents(interest), left: cents(off - Math.max(bal, 0)) };
+  return { months, interest: cents(interest), offset: cents(off) };
 }
+
+// First Home Super Saver: voluntary contributions count up to $15k a year and $50k total, released after 15% tax.
+// ponytail: ignores the ATO's deemed earnings on top; add if the release estimate needs to be exact.
+export const fhssRelease = (monthlySacrifice, years) => cents(Math.min(Math.min(monthlySacrifice * 12, 15000) * years, 50000) * 0.85);
+
+export const marginalRate = (taxable, year) => RATES[year].brackets.findLast(([from]) => taxable > from)?.[1] ?? 0;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toMonthly, fromMonthly, splitCost, summarize, takeHome, project, superFee, stampDuty, repayment, payoff } from './budget.js';
+import { toMonthly, fromMonthly, splitCost, summarize, takeHome, project, superFee, stampDuty, repayment, payoff, fhssRelease, marginalRate } from './budget.js';
 
 test('toMonthly converts each Cycle to a monthly amount', () => {
   assert.deepEqual(
@@ -99,8 +99,8 @@ test('superFee matches a fund\'s published total fees at different balances', ()
 });
 
 test('stampDuty uses VIC rates, with the first home buyer exemption to $600k and sliding concession to $750k', () => {
-  assert.equal(stampDuty(515000, false), 25970); // 2870 + 6% over 130k
-  assert.equal(stampDuty(515000, true), 0);
+  assert.equal(stampDuty(520000, false), 26270); // 2870 + 6% over 130k
+  assert.equal(stampDuty(520000, true), 0);
   assert.equal(stampDuty(675000, true), 17785); // half of 35570
   assert.equal(stampDuty(800000, true), 43070);
   assert.equal(stampDuty(1000000, false), 55000);
@@ -117,4 +117,12 @@ test('payoff: extra repayments and offset savings clear the loan in the same NPE
   assert.equal(extra.months, 235);
   assert.equal(offset.months, 235);
   assert.ok(Math.abs(extra.interest - offset.interest) < 1);
+});
+
+test('fhssRelease caps sacrificed contributions at $15k a year and $50k total, released after 15% tax', () => {
+  assert.deepEqual([[1000, 3], [1000, 5], [1500, 2]].map(([m, y]) => fhssRelease(m, y)), [30600, 42500, 25500]);
+});
+
+test('marginalRate is the tax bracket rate a taxable income falls in', () => {
+  assert.deepEqual([10000, 30000, 100000, 200000].map(i => marginalRate(i, '2026-27')), [0, 0.15, 0.3, 0.45]);
 });
