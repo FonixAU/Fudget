@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fudget</title>
+<style>
+  :root { color-scheme: light dark; --line: #8884; --accent: #2563eb; }
+  body { margin: 0; font: 16px/1.4 system-ui, sans-serif; background: Canvas; color: CanvasText; }
+  header { position: sticky; top: 0; background: Canvas; padding: 12px 16px 8px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 1.1rem; margin: 0 0 8px; }
+  [hidden] { display: none !important; }
+  nav { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 8px; }
+  nav button { flex: none; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: none; color: inherit; font: inherit; }
+  nav button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  input { width: 100%; box-sizing: border-box; padding: 10px; font: inherit; border: 1px solid var(--line); border-radius: 8px; background: none; color: inherit; }
+  #totals { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font-size: .9rem; }
+  #totals b { font-variant-numeric: tabular-nums; }
+  main { padding: 8px 16px 32px; }
+  article { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+  article h2 { font-size: 1rem; margin: 0 0 6px; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: .9rem; }
+  dt { opacity: .7; }
+  dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .neg { color: #dc2626; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Fudget</h1>
+  <nav id="tabs"></nav>
+  <input id="q" type="search" placeholder="Search rows…" aria-label="Search rows">
+  <div id="totals"></div>
+</header>
+<main id="rows" aria-live="polite">Loading…</main>
+<script type="module">
+import { parseCsv, toNumber } from './sheet.js';
+
+const SHEET_ID = '1SerTIvuxGG_zBD8_3VwQg2ua2bNGL_gxh_H_pwkb1-M';
+// Tab names exactly as in the spreadsheet. '' = first tab.
+const TABS = [''];
+
+// ponytail: gviz CSV needs the sheet shared "anyone with the link"; it can blank cells in mixed text/number columns.
+// If that bites, switch to File > Share > Publish to web > CSV per tab.
+const url = tab => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+
+const $ = id => document.getElementById(id);
+const el = (tag, text, cls) => { const e = document.createElement(tag); e.textContent = text; if (cls) e.className = cls; return e; };
+const fmt = n => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+let header = [], body = [];
+
+async function load(tab) {
+  for (const b of $('tabs').children) b.setAttribute('aria-pressed', b.dataset.tab === tab);
+  $('rows').textContent = 'Loading…';
+  try {
+    const res = await fetch(url(tab));
+    if (!res.ok) throw new Error(res.status);
+    [header = [], ...body] = parseCsv(await res.text());
+    body = body.filter(r => r.some(c => c.trim()));
+    render();
+  } catch (e) {
+    $('rows').textContent = `Couldn't load the sheet (${e.message}). Is it shared "anyone with the link"?`;
+  }
+}
+
+function render() {
+  const q = $('q').value.trim().toLowerCase();
+  const rows = q ? body.filter(r => r.join(' ').toLowerCase().includes(q)) : body;
+
+  // A column counts as numeric when most of its filled cells are numbers.
+  $('totals').replaceChildren(...header.flatMap((h, i) => {
+    const filled = rows.map(r => r[i] ?? '').filter(c => c.trim());
+    const nums = filled.map(toNumber).filter(n => n !== null);
+    if (!h || !nums.length || nums.length < filled.length / 2) return [];
+    const span = el('span', `${h}: `);
+    span.append(el('b', fmt(nums.reduce((a, b) => a + b, 0))));
+    return [span];
+  }));
+
+  $('rows').replaceChildren(
+    el('p', `${rows.length} row${rows.length === 1 ? '' : 's'}`),
+    ...rows.map(r => {
+      const card = el('article');
+      card.append(el('h2', r[0] || '—'));
+      const dl = el('dl');
+      header.forEach((h, i) => {
+        if (i === 0 || !r[i]?.trim()) return;
+        dl.append(el('dt', h || `Col ${i + 1}`), el('dd', r[i], toNumber(r[i]) < 0 ? 'neg' : ''));
+      });
+      card.append(dl);
+      return card;
+    }),
+  );
+}
+
+$('tabs').replaceChildren(...TABS.map(t => {
+  const b = el('button', t || 'Sheet');
+  b.dataset.tab = t;
+  b.onclick = () => load(t);
+  return b;
+}));
+if (TABS.length < 2) $('tabs').hidden = true;
+$('q').oninput = render;
+load(TABS[0]);
+</script>
+</body>
+</html>
