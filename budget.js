@@ -20,25 +20,30 @@ export function splitCost(amount, incomes, method) {
   return Object.fromEntries(Object.entries(incomes).map(([m, inc]) => [m, (amount * inc) / total]));
 }
 
-// Flow every entry, converted to monthly, into Household and Member totals.
+const FIELD = { income: 'income', cost: 'costs', saving: 'savings' };
+
+// Each entry converted to monthly, with the share every Member carries.
 // entry: { kind: 'income'|'cost'|'saving', owner: Member name or null for Shared, amount, cycle }.
 // Shared Costs and Savings Goals reach Members via `split`; Shared Income via `sharedIncome`
-// ('none' keeps it at Household level). Splits weigh Members by their own Income only.
-export function summarize(entries, { split, sharedIncome = 'none' }) {
+// ('none' keeps it at Household level). `pool` splits Members' own Costs and Savings Goals too.
+// Splits weigh Members by their own Income only.
+export function shares(entries, { split, sharedIncome = 'none', pool = false }) {
+  const monthly = entries.map(e => ({ ...e, monthly: toMonthly(e.amount, e.cycle) }));
+  const incomes = {};
+  for (const e of monthly) if (e.owner) incomes[e.owner] = (incomes[e.owner] ?? 0) + (e.kind === 'income' ? e.monthly : 0);
+  return monthly.map(e => ({
+    ...e,
+    byMember: e.owner && !(pool && e.kind !== 'income') ? { [e.owner]: e.monthly } : splitCost(e.monthly, incomes, e.kind === 'income' ? sharedIncome : split),
+  }));
+}
+
+// Flow every entry into Household and Member totals, ending in Left Over.
+export function summarize(entries, options) {
   const blank = () => ({ income: 0, costs: 0, savings: 0, leftOver: 0 });
   const household = blank(), members = {};
-  const field = { income: 'income', cost: 'costs', saving: 'savings' };
-  const monthly = entries.map(e => ({ ...e, amount: toMonthly(e.amount, e.cycle) }));
-
-  for (const e of monthly) {
-    household[field[e.kind]] += e.amount;
-    if (e.owner) (members[e.owner] ??= blank())[field[e.kind]] += e.amount;
-  }
-  const incomes = Object.fromEntries(Object.entries(members).map(([m, t]) => [m, t.income]));
-  for (const e of monthly) {
-    if (e.owner) continue;
-    const method = e.kind === 'income' ? sharedIncome : split;
-    for (const [m, share] of Object.entries(splitCost(e.amount, incomes, method))) members[m][field[e.kind]] += share;
+  for (const e of shares(entries, options)) {
+    household[FIELD[e.kind]] += e.monthly;
+    for (const [m, amt] of Object.entries(e.byMember)) (members[m] ??= blank())[FIELD[e.kind]] += amt;
   }
   for (const t of [household, ...Object.values(members)]) t.leftOver = t.income - t.costs - t.savings;
   return { household, members };
@@ -91,4 +96,48 @@ export function takeHome({ salaryPackage = 0, hecs = false, sacrifice = 0 }, yea
   out.superNet = out.superGross * 0.85;
   out.takeHome = taxable - gross + offset - out.medicare - out.hecs;
   return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, cents(v)]));
+}
+
+// Balance after `years` of monthly deposits made at the start of each month.
+// Interest is taxed at taxRate; yearlyFee(balance) is charged at each year end (super fund fees).
+export function project({ monthly, start = 0, annualRate, taxRate = 0, years, yearlyFee = () => 0 }) {
+  const r = (annualRate / 12) * (1 - taxRate);
+  let bal = start;
+  for (let m = 1; m <= years * 12; m++) {
+    bal = (bal + monthly) * (1 + r);
+    if (m % 12 === 0) bal -= yearlyFee(bal);
+  }
+  return cents(bal);
+}
+
+// Yearly fees for a super fund at a balance. cap limits only the % admin fee; null means no cap.
+export const superFee = (f, bal) => cents(f.fixed + Math.min(f.pctAUM * bal, f.cap ?? Infinity) + f.investFee * bal);
+
+// Victorian land transfer duty. First home buyers pay none to $600k, then a sliding share to full duty at $750k.
+// ponytail: VIC only, no principal-place-of-residence or off-the-plan concessions; add a state selector if you move.
+export function stampDuty(value, firstHome) {
+  const duty = value <= 25000 ? value * 0.014 : value <= 130000 ? 350 + (value - 25000) * 0.024
+    : value <= 960000 ? 2870 + (value - 130000) * 0.06 : value * 0.055;
+  if (!firstHome || value > 750000) return cents(duty);
+  return value <= 600000 ? 0 : cents((duty * (value - 600000)) / 150000);
+}
+// Monthly payment that clears `loan` over `years` at `rate` p.a.
+const pmt = (loan, rate, years) => {
+  const r = rate / 12, n = years * 12;
+  return r ? (loan * r) / (1 - (1 + r) ** -n) : loan / n;
+};
+export const repayment = (loan, rate, years) => cents(pmt(loan, rate, years));
+// Month-by-month loan with optional extra repayments and monthly deposits into an offset account.
+// Ends when the offset can clear the balance. `left` is what stays in the offset after paying out.
+export function payoff({ loan, rate, years, extra = 0, offset = 0 }) {
+  const pay = pmt(loan, rate, years), r = rate / 12;
+  let bal = loan, off = 0, interest = 0, months = 0;
+  while (bal - off > 0.005 && months < 1200) { // half a cent absorbs float drift
+    const i = Math.max(bal - off, 0) * r;
+    interest += i;
+    bal += i - pay - extra;
+    off += offset;
+    months++;
+  }
+  return { months, interest: cents(interest), left: cents(off - Math.max(bal, 0)) };
 }

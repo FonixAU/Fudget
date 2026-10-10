@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toMonthly, fromMonthly, splitCost, summarize, takeHome } from './budget.js';
+import { toMonthly, fromMonthly, splitCost, summarize, takeHome, project, superFee, stampDuty, repayment, payoff } from './budget.js';
 
 test('toMonthly converts each Cycle to a monthly amount', () => {
   assert.deepEqual(
@@ -76,4 +76,45 @@ test('takeHome never pays out LITO beyond the tax owed, so no income means no ta
 test('takeHome with Salary Sacrifice lowers taxable income and moves the money into super', () => {
   const r = takeHome({ salaryPackage: 112000, hecs: true, sacrifice: 500 }, '2026-27');
   assert.deepEqual([r.tax, r.medicare, r.hecs, r.takeHome, r.superGross, r.superNet], [18720, 1880, 4950, 68450, 18000, 15300]);
+});
+
+test('summarize with pool treats every Member\'s own Costs as Shared Costs (the sheet\'s "All Joint")', () => {
+  const entries = [
+    { kind: 'income', owner: 'Alex', amount: 6000, cycle: 'monthly' },
+    { kind: 'income', owner: 'Sam', amount: 4000, cycle: 'monthly' },
+    { kind: 'cost', owner: 'Alex', amount: 100, cycle: 'monthly' },
+  ];
+  const { members } = summarize(entries, { split: 'income', pool: true });
+  assert.deepEqual([members.Alex.costs, members.Sam.costs], [60, 40]);
+});
+
+test('project grows monthly deposits (made at the start of each month) with interest net of tax', () => {
+  assert.equal(project({ monthly: 1000, annualRate: 0.06, years: 1 }), 12397.24);
+  assert.equal(project({ monthly: 1000, start: 5000, annualRate: 0.06, taxRate: 0.3, years: 1 }), 17490.62);
+});
+
+test('superFee matches a fund\'s published total fees at different balances', () => {
+  const aware = { fixed: 52, pctAUM: 0.0015, cap: 750, investFee: 0.0078 };
+  assert.deepEqual([100000, 500000].map(b => superFee(aware, b)), [982, 4702]);
+});
+
+test('stampDuty uses VIC rates, with the first home buyer exemption to $600k and sliding concession to $750k', () => {
+  assert.equal(stampDuty(515000, false), 25970); // 2870 + 6% over 130k
+  assert.equal(stampDuty(515000, true), 0);
+  assert.equal(stampDuty(675000, true), 17785); // half of 35570
+  assert.equal(stampDuty(800000, true), 43070);
+  assert.equal(stampDuty(1000000, false), 55000);
+});
+
+test('repayment is the standard monthly loan payment', () => {
+  assert.equal(repayment(400000, 0.06, 30), 2398.2);
+});
+
+test('payoff: extra repayments and offset savings clear the loan in the same NPER month', () => {
+  const loan = { loan: 400000, rate: 0.06, years: 30 };
+  assert.equal(payoff(loan).months, 360);
+  const extra = payoff({ ...loan, extra: 500 }), offset = payoff({ ...loan, offset: 500 });
+  assert.equal(extra.months, 235);
+  assert.equal(offset.months, 235);
+  assert.ok(Math.abs(extra.interest - offset.interest) < 1);
 });
