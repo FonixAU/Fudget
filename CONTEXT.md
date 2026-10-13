@@ -28,6 +28,17 @@ Part of a Member's pay sent to super before tax, lowering Take-home but adding m
 **FHSS**:
 First Home Super Saver: Salary Sacrifice that can later be released from super toward a first home deposit.
 
+**Salary Packaging**:
+Costs an employer pays from a Member's pay before tax, lowering taxable income. Exempt items (e.g. a laptop) don't count toward HELP; reportable ones (e.g. not-for-profit caps) do.
+
+**Novated Lease**:
+A car lease the employer pays from a Member's pay as Salary Packaging, with running costs bundled in. GST is claimed back; FBT is either exempt (electric cars under the luxury car threshold) or paid away from after-tax pay. Ends with a Residual.
+_Avoid_: Car package, salary-packaged car
+
+**Residual**:
+The balloon owed at the end of a Novated Lease to keep the car, at least the ATO minimum for the term.
+_Avoid_: Balloon payment (fine in UI copy), buyout
+
 **Income**:
 Money coming in. Belongs to one Member, or is Shared Income.
 _Avoid_: Earnings, pay, salary

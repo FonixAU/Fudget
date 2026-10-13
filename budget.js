@@ -56,12 +56,14 @@ export const RATES = {
     super: 0.115,
     brackets: [[18200, 0.16], [45000, 0.30], [135000, 0.37], [190000, 0.45]],
     hecs: base => base * 0.035, // the sheet's flat approximation
+    carLimit: 69674, lctEfficient: 89332,
   },
   '2026-27': {
     super: 0.12,
     brackets: [[18200, 0.15], [45000, 0.30], [135000, 0.37], [190000, 0.45]],
     // Marginal HELP repayments; thresholds are 2025-26's (latest published when written).
     hecs: inc => (inc <= 67000 ? 0 : inc <= 125000 ? (inc - 67000) * 0.15 : 8700 + (inc - 125000) * 0.17),
+    carLimit: 69883, lctEfficient: 91661,
   },
 };
 
@@ -79,10 +81,11 @@ function incomeTax(taxable, brackets) {
 const lito = inc => (inc <= 37500 ? 700 : inc <= 45000 ? 700 - (inc - 37500) * 0.05 : inc <= 66667 ? 325 - (inc - 45000) * 0.015 : 0);
 
 // Yearly figures for one Member. salaryPackage includes super; sacrifice is monthly Salary Sacrifice into super.
-export function takeHome({ salaryPackage = 0, hecs = false, sacrifice = 0 }, year) {
+// Salary Packaging (yearly): preTax comes out before tax, postTax after it, rfba is the reportable fringe benefits amount.
+export function takeHome({ salaryPackage = 0, hecs = false, sacrifice = 0, preTax = 0, postTax = 0, rfba = 0 }, year) {
   const r = RATES[year];
   const base = salaryPackage / (1 + r.super);
-  const taxable = base - sacrifice * 12;
+  const taxable = base - sacrifice * 12 - preTax;
   const gross = incomeTax(taxable, r.brackets);
   const offset = Math.min(lito(taxable), gross); // LITO is non-refundable
   const out = {
@@ -91,10 +94,10 @@ export function takeHome({ salaryPackage = 0, hecs = false, sacrifice = 0 }, yea
     tax: gross,
     lito: offset,
     medicare: taxable * 0.02,
-    hecs: hecs ? r.hecs(base) : 0, // HELP income adds sacrificed super back, so use base
+    hecs: hecs ? r.hecs(base - preTax + rfba) : 0, // HELP income adds sacrificed super and reportable benefits back
   };
   out.superNet = out.superGross * 0.85;
-  out.takeHome = taxable - gross + offset - out.medicare - out.hecs;
+  out.takeHome = taxable - gross + offset - out.medicare - out.hecs - postTax;
   return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, cents(v)]));
 }
 
@@ -147,3 +150,29 @@ export function payoff({ loan, rate, years, extra = 0, offset = 0 }) {
 export const fhssRelease = (monthlySacrifice, years) => cents(Math.min(Math.min(monthlySacrifice * 12, 15000) * years, 50000) * 0.85);
 
 export const marginalRate = (taxable, year) => RATES[year].brackets.findLast(([from]) => taxable > from)?.[1] ?? 0;
+
+// ATO minimum residual (balloon) for a car lease, by term in years.
+export const RESIDUALS = { 1: 0.6563, 2: 0.5625, 3: 0.4688, 4: 0.375, 5: 0.2813 };
+
+// Novated lease on a car, against buying the same car with a loan. All amounts yearly unless named monthly.
+// price is GST-inclusive; running costs and fee are yearly and GST-inclusive (rego carries no GST).
+// kind: 'ev' FBT-exempt electric, 'ev25' electric with the 25% FBT discount, 'ice' any other car (FBT paid away by ECM).
+// ponytail: whole price treated as GST-inclusive car value (stamp duty and rego on it ignored), statutory FBT at a flat 20%
+// with no one-third reduction after year 4; add those if a lease runs past 4 years or the price breakdown matters.
+export function novatedLease({ price, kind, years, rate, fuel = 0, service = 0, insurance = 0, rego = 0, fee = 0 }, year) {
+  const gstCredit = Math.min(price, RATES[year].carLimit) / 11;
+  const financed = price - gstCredit, residual = financed * RESIDUALS[years];
+  const r = rate / 12, n = years * 12, v = (1 + r) ** -n;
+  const annuity = (pv, fv) => (r ? ((pv - fv * v) * r) / (1 - v) : (pv - fv) / n);
+  const payment = annuity(financed, residual) / (1 + r); // leases are paid in advance
+  const packageCost = payment * 12 + (fuel + service + insurance + fee) / 1.1 + rego; // employer claims the GST back
+  const taxable = kind === 'ev' ? 0 : price * 0.2 * (kind === 'ev25' ? 0.75 : 1); // FBT statutory formula
+  const postTax = taxable; // ECM: contribute the taxable value from after-tax pay so no FBT is owed
+  const loanPayment = annuity(price, residual * 1.1); // same car, same balloon, paid from take-home
+  return Object.fromEntries(Object.entries({
+    gstCredit, financed, residual, payout: residual * 1.1, payment, packageCost,
+    preTax: packageCost - postTax / 1.1, postTax,
+    rfba: kind === 'ev' ? price * 0.2 * 1.8868 : 0, // exempt EVs still report their grossed-up value
+    loanPayment, loanYearly: loanPayment * 12 + fuel + service + insurance + rego,
+  }).map(([k, x]) => [k, cents(x)]));
+}
