@@ -53,6 +53,7 @@
 <script type="module">
 import * as B from './budget.js';
 import { FUNDS } from './funds.js';
+import { fillWorkbook, workbookCells } from './sheet.js';
 
 const KEY = 'fudget-v1';
 const CYCLES = ['weekly', 'fortnightly', 'monthly', 'quarterly', 'yearly'];
@@ -357,11 +358,21 @@ function backup() {
     <p class="note">Your numbers are saved only in this browser. Export a file to keep a copy or move to another device.</p>
     <div class="menu"><button class="small" id="exp">Export file</button>
     <label class="small" style="display:inline-flex"><span>Import file</span> <input type="file" id="imp" accept="application/json"></label>
-    <button class="small" id="reset">Reset to sample numbers</button></div></section>`;
-  document.getElementById('exp').onclick = () => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' }));
-    a.download = 'fudget-backup.json'; a.click();
+    <button class="small" id="reset">Reset to sample numbers</button></div></section>
+    <section><h2>Spreadsheet</h2>
+    <p class="note">Download your numbers in the original Budgeting + First Home Super Sacrifice workbook. Open it in Excel or upload it to Google Sheets. It uses its own formulas (2024-25 tax rules) and holds two members, the first two variations and up to 11 costs per column.</p>
+    <div class="menu"><button class="small" id="xlsx">Download spreadsheet (.xlsx)</button></div></section>`;
+  const download = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); };
+  document.getElementById('exp').onclick = () => download(new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' }), 'fudget-backup.json');
+  document.getElementById('xlsx').onclick = async () => {
+    try {
+      const { shares } = budget(scn()); // Savings Goals per Member, as on the Savings tab
+      const saving = Object.fromEntries(S.members.map(m => [m.id, shares.filter(e => e.kind === 'saving').reduce((a, e) => a + (e.byMember[m.id] ?? 0), 0)]));
+      const res = await fetch('budget-template.xlsx');
+      if (!res.ok) throw new Error(`template ${res.status}`);
+      const xlsx = await fillWorkbook(new Uint8Array(await res.arrayBuffer()), workbookCells(S, saving));
+      download(new Blob([xlsx], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'Budgeting + First Home Super Sacrifice.xlsx');
+    } catch (err) { alert(`Couldn't build the spreadsheet: ${err.message}`); }
   };
   document.getElementById('imp').onchange = async e => {
     try {
