@@ -116,13 +116,13 @@ const DEFAULTS = {
       { name: 'FU Money', amount: 300, kind: 'saving' },
     ],
   }],
-  house: { value: 600000, depositPct: 0.05, govPct: 0, firstHome: true, rate: 0.0549, years: 30, rego: 121.4, title: 36.2, conveyancing: 2000, stocks: 0, gift: 0, extras: 0, cushion: 0, buyIn: 1, useSacrifice: true },
+  house: { stage: 'first', balance: 450000, offsetNow: 0, value: 600000, depositPct: 0.05, govPct: 0, firstHome: true, rate: 0.0549, years: 30, rego: 121.4, title: 36.2, conveyancing: 2000, stocks: 0, gift: 0, extras: 0, cushion: 0, buyIn: 1, useSacrifice: true },
   goals: { emergencyMonths: 6, extra: 1000 },
 };
 
 let S = load();
 // Fill in fields added since a budget was saved or exported.
-function upgrade(s) { for (const sc of s.scenarios) sc.car ??= structuredClone(CAR); return s; }
+function upgrade(s) { for (const sc of s.scenarios) sc.car ??= structuredClone(CAR); s.house = { ...DEFAULTS.house, ...s.house }; return s; }
 function load() {
   try { return upgrade({ ...structuredClone(DEFAULTS), ...JSON.parse(localStorage.getItem(KEY)) }); } catch { return structuredClone(DEFAULTS); }
 }
@@ -145,6 +145,19 @@ const rows = (list, total) => `<table>${list.map(([l, v, cls = '']) => `<tr clas
 const scn = () => S.scenarios[S.active] ?? S.scenarios[0];
 const memberName = id => S.members.find(m => m.id === id)?.name ?? 'Shared';
 const fund = m => FUNDS[m.fund] ?? FUNDS[0];
+const fhss = () => S.house.stage !== 'own'; // FHSS only helps toward a first home
+// The Member whose bank account m saves into: their own, or a partner's Joint Account (never a chain).
+const holder = m => (m.account && S.members.find(x => x.id === m.account && !x.account)) || m;
+const accounts = () => S.members.filter(m => holder(m) === m).map(h => ({ h, members: S.members.filter(m => holder(m) === h) }));
+const savingOf = (shares, m) => shares.filter(e => e.kind === 'saving').reduce((a, e) => a + (e.byMember[m.id] ?? 0), 0);
+// An account's balance after y years of its Members' Savings Goals; with sac, each saves their Salary Sacrifice's take-home cost less.
+// ponytail: joint interest taxed at the Members' average marginal rate (equal ownership); add ownership shares if it's ever unequal.
+function bank({ h, members }, shares, y, sac) {
+  const parts = members.map(m => { const a = pay(m, false), b = pay(m, true);
+    return [savingOf(shares, m) - (sac ? (a.takeHome - b.takeHome) / 12 : 0), B.marginalRate(sac ? b.base - m.sacrifice * 12 : a.base, S.year)]; });
+  const tax = parts.reduce((t, [, rate]) => t + rate, 0) / parts.length;
+  return B.project({ monthly: parts.reduce((t, [n]) => t + n, 0), start: h.bankStart, annualRate: h.bankRate, taxRate: h.taxInterest ? tax : 0, years: y });
+}
 const GROSS_UP = 1.8868; // FBT type 2 gross-up, used for reportable fringe benefits
 const pay = (m, withSac, lease) => B.takeHome({ ...m, sacrifice: withSac ? m.sacrifice : 0,
   preTax: (m.packaged || 0) + (lease?.preTax ?? 0), postTax: lease?.postTax ?? 0,
@@ -184,9 +197,11 @@ const TABS = {
       ${m.packaged ? chk(`members.${i}.packagedReportable`, 'Reportable benefit (e.g. not-for-profit cap)') : ''}
       <div data-out="income-${i}"></div>
       <details data-d="bank-${i}"><summary>Bank &amp; super</summary>
-      ${num(`members.${i}.bankStart`, 'Bank balance now')}
+      ${S.members.length > 1 ? sel(`members.${i}.account`, 'Savings account', [['', 'Own account'], ...S.members.filter(x => x !== m && !x.account).map(x => [x.id, `Joint with ${x.name}`])]) : ''}
+      ${holder(m) !== m ? `<p class="note">Saves into the Joint Account with ${esc(holder(m).name)}; its balance and interest are set there.</p>` : `
+      ${num(`members.${i}.bankStart`, accounts().find(a => a.h === m).members.length > 1 ? 'Joint Account balance now' : 'Bank balance now')}
       ${pctIn(`members.${i}.bankRate`, 'Bank interest % p.a.')}
-      ${chk(`members.${i}.taxInterest`, 'Tax interest at marginal rate')}
+      ${chk(`members.${i}.taxInterest`, 'Tax interest at marginal rate')}`}
       ${sel(`members.${i}.fund`, 'Super fund', FUNDS.map((f, j) => [j, f.name]))}
       ${fund(m).returns ? '' : pctIn(`members.${i}.superReturn`, 'Expected super return % p.a.')}
       </details></section>`).join(''),
@@ -309,30 +324,37 @@ const TABS = {
 
   savings: {
     title: 'Savings',
-    form: () => S.members.map((m, i) => `<section><h2>${esc(m.name)}</h2>
-      <div data-out="savings-${i}"></div></section>`).join('') + `<p class="note">Monthly savings come from each Member's share of the savings goals in ${esc(scn().name)}.
-      Balances, interest, super fund and sacrifice are set on the <button class="link" data-goto="income">Income tab</button>. Fund returns are past averages to June 2023, not a forecast.</p>`,
-    out: () => Object.fromEntries(S.members.map((m, i) => {
-      const { shares } = budget(scn());
-      const saving = shares.filter(e => e.kind === 'saving').reduce((a, e) => a + (e.byMember[m.id] ?? 0), 0);
-      const a = pay(m, false), b = pay(m, true), drop = (a.takeHome - b.takeHome) / 12, f = fund(m);
-      const bank = (monthly, base, y) => B.project({ monthly, start: m.bankStart, annualRate: m.bankRate, taxRate: m.taxInterest ? B.marginalRate(base, S.year) : 0, years: y });
+    form: () => accounts().map((acct, j) => `<section><h2>${acct.members.map(m => esc(m.name)).join(' &amp; ')}${acct.members.length > 1 ? ' <span class="note">Joint Account</span>' : ''}</h2>
+      <div data-out="savings-${j}"></div></section>`).join('') + `<p class="note">Monthly savings come from each Member's share of the savings goals in ${esc(scn().name)}.
+      Balances, interest, joint accounts, super fund and sacrifice are set on the <button class="link" data-goto="income">Income tab</button>. Fund returns are past averages to June 2023, not a forecast.
+      ${fhss() ? '' : 'FHSS release is left out because you already own a home (House tab).'}</p>`,
+    out: () => Object.fromEntries(accounts().map((acct, j) => {
+      const { shares } = budget(scn()), sacs = acct.members.filter(m => m.sacrifice), joint = acct.members.length > 1;
+      const saving = acct.members.reduce((t, m) => t + savingOf(shares, m), 0);
+      const drop = sacs.reduce((t, m) => t + (pay(m, false).takeHome - pay(m, true).takeHome) / 12, 0);
+      const row = (label, f, cls = '') => `<tr class="${cls}"><td>${label}</td>${HORIZONS.map(y => `<td>${$(f(y))}</td>`).join('')}</tr>`;
+      const release = y => fhss() ? sacs.reduce((t, m) => t + B.fhssRelease(m.sacrifice, y), 0) : 0;
       // ponytail: extra super fees approximated as % fees on the extra balance only (fixed fee is paid anyway, cap ignored).
-      const sup = y => B.project({ monthly: m.sacrifice * 0.85, annualRate: f.returns ? f.returns[HORIZONS.indexOf(y)] : m.superReturn, years: y, yearlyFee: bal => bal * (f.pctAUM + f.investFee) });
-      return [`savings-${i}`, `<p class="note">Saving ${$(saving)}/month${m.sacrifice ? `, or ${$(saving - drop)}/month in the bank with sacrifice` : ''}.</p>
+      const sup = (m, y, f = fund(m)) => B.project({ monthly: m.sacrifice * 0.85, annualRate: f.returns ? f.returns[HORIZONS.indexOf(y)] : m.superReturn, years: y, yearlyFee: bal => bal * (f.pctAUM + f.investFee) });
+      return [`savings-${j}`, `<p class="note">Saving ${$(saving)}/month${drop ? `, or ${$(saving - drop)}/month in the bank with sacrifice` : ''}.</p>
         <table><tr><th></th>${HORIZONS.map(y => `<th>${y} yr</th>`).join('')}</tr>
-        <tr><td>Bank, no sacrifice</td>${HORIZONS.map(y => `<td>${$(bank(saving, a.base, y))}</td>`).join('')}</tr>
-        ${m.sacrifice ? `<tr><td>Bank, with sacrifice</td>${HORIZONS.map(y => `<td>${$(bank(saving - drop, b.base - m.sacrifice * 12, y))}</td>`).join('')}</tr>
-        <tr><td>Extra super</td>${HORIZONS.map(y => `<td>${$(sup(y))}</td>`).join('')}</tr>
-        <tr class="sub"><td>FHSS releasable</td>${HORIZONS.map(y => `<td>${$(B.fhssRelease(m.sacrifice, y))}</td>`).join('')}</tr>
-        <tr class="total"><td>Bank + FHSS</td>${HORIZONS.map(y => `<td>${$(bank(saving - drop, b.base - m.sacrifice * 12, y) + B.fhssRelease(m.sacrifice, y))}</td>`).join('')}</tr>` : ''}
+        ${row('Bank, no sacrifice', y => bank(acct, shares, y, false))}
+        ${sacs.length ? row('Bank, with sacrifice', y => bank(acct, shares, y, true))
+          + sacs.map(m => row(`Extra super${joint ? ` (${esc(m.name)})` : ''}`, y => sup(m, y))
+            + (fhss() ? row(`FHSS releasable${joint ? ` (${esc(m.name)})` : ''}`, y => B.fhssRelease(m.sacrifice, y), 'sub') : '')).join('')
+          + (fhss() ? row('Bank + FHSS', y => bank(acct, shares, y, true) + release(y), 'total') : '') : ''}
         </table>`];
     })),
   },
 
   house: {
     title: 'House',
-    form: () => `<div data-out="house"></div><section><details data-d="property"><summary>Property</summary>
+    form: () => `<section>${sel('house.stage', 'Home', [['first', 'Buying a first home'], ['own', 'Already own a home']])}</section>` + (!fhss() ? `<div data-out="house"></div>
+      <section><h2>Mortgage now</h2>
+      ${num('house.balance', 'Loan balance')}
+      ${num('house.offsetNow', 'Offset balance')}
+      ${pctIn('house.rate', 'Interest rate % p.a.')}
+      ${num('house.years', 'Years left on the loan', 1)}</section>` : `<div data-out="house"></div><section><details data-d="property"><summary>Property</summary>
       ${num('house.value', 'Property value')}
       ${pctIn('house.depositPct', 'Your deposit %')}
       ${pctIn('house.govPct', 'Government contribution %')}
@@ -345,21 +367,22 @@ const TABS = {
       ${sel('house.buyIn', 'Buying in', [[0, 'Now'], [1, '1 year'], [3, '3 years'], [5, '5 years']])}
       ${chk('house.useSacrifice', 'Using salary sacrifice + FHSS')}
       ${num('house.stocks', 'Stocks / investments')}${num('house.gift', 'Family gift')}${num('house.extras', 'Anything else')}
-      ${num('house.cushion', 'Cash cushion to keep')}</details></section>`,
+      ${num('house.cushion', 'Cash cushion to keep')}</details></section>`),
     out: () => {
-      const h = S.house, y = +h.buyIn, sac = h.useSacrifice, { shares } = budget(scn());
+      const h = S.house, income = budget(scn()).sum.household.income;
+      if (!fhss()) { const monthly = B.repayment(h.balance, h.rate, h.years);
+        return { house: `<section><h2>Repayments</h2>${rows([
+          ['Monthly repayment', monthly, 'total'], ['Fortnightly (approx.)', monthly * 12 / 26],
+          ['Share of household take-home', pct(monthly / (income || 1))],
+          ['Interest left to pay', B.payoff({ loan: h.balance, rate: h.rate, years: h.years, offsetStart: h.offsetNow }).interest]])}
+          <p class="note">Repayment to clear the balance in the years left. Compare extra repayments with offset savings on the <button class="link" data-goto="goals">Goals tab</button>.</p></section>` }; }
+      const y = +h.buyIn, sac = h.useSacrifice, { shares } = budget(scn());
       const deposit = h.value * h.depositPct, gov = h.value * h.govPct, loan = h.value - deposit - gov;
       const duty = B.stampDuty(h.value, h.firstHome), transfer = 102.4 + Math.ceil(h.value / 1000) * 2.34;
       const upfront = deposit + duty + transfer + h.rego + h.title + h.conveyancing;
-      const cash = S.members.reduce((t, m) => {
-        if (!y) return t + m.bankStart;
-        const a = pay(m, false), b = pay(m, true), drop = sac ? (a.takeHome - b.takeHome) / 12 : 0;
-        const saving = shares.filter(e => e.kind === 'saving').reduce((s, e) => s + (e.byMember[m.id] ?? 0), 0);
-        const base = sac ? b.base - m.sacrifice * 12 : a.base;
-        return t + B.project({ monthly: saving - drop, start: m.bankStart, annualRate: m.bankRate, taxRate: m.taxInterest ? B.marginalRate(base, S.year) : 0, years: y })
-          + (sac ? B.fhssRelease(m.sacrifice, y) : 0);
-      }, 0) + h.stocks + h.gift + h.extras - h.cushion;
-      const monthly = B.repayment(loan, h.rate, h.years), income = budget(scn()).sum.household.income;
+      const cash = accounts().reduce((t, a) => t + bank(a, shares, y, sac), 0)
+        + (sac ? S.members.reduce((t, m) => t + B.fhssRelease(m.sacrifice, y), 0) : 0) + h.stocks + h.gift + h.extras - h.cushion;
+      const monthly = B.repayment(loan, h.rate, h.years);
       return { house: `<section><h2>Purchase</h2>${rows([
         ['Your deposit', deposit], ['Government contribution', gov], ['Loan', loan], ['Loan to value', pct(loan / h.value) + (loan / h.value > 0.8 ? ' <span class="note">(lenders usually add mortgage insurance above 80%, not included)</span>' : '')],
         ['Stamp duty (VIC)', duty], ['Transfer fee', transfer], ['Total up-front', upfront, 'total'],
@@ -375,21 +398,22 @@ const TABS = {
     title: 'Goals',
     form: () => `<section><h2>Emergency fund</h2>${num('goals.emergencyMonths', 'Months of costs to hold', 1)}<div data-out="emergency"></div></section>
       <section><h2>Mortgage: repay or save?</h2>
-      <p class="note">Uses the loan from the House tab. Extra money each month goes to extra repayments, an offset account, or half each.</p>
+      <p class="note">Uses the ${fhss() ? "loan for the home you're buying" : 'mortgage you have now'} from the <button class="link" data-goto="house">House tab</button>. Extra money each month goes to extra repayments, an offset account, or half each.</p>
       ${num('goals.extra', 'Extra each month')}<div data-out="mortgage"></div></section>`,
     out: () => {
       const { household: h } = budget(scn()).sum, fundSize = h.costs * S.goals.emergencyMonths;
       const months = h.savings > 0 ? Math.ceil(fundSize / h.savings) : null;
-      const hs = S.house, loan = hs.value * (1 - hs.depositPct - hs.govPct), x = S.goals.extra;
-      const base = B.payoff({ loan, rate: hs.rate, years: hs.years });
+      const hs = S.house, x = S.goals.extra, offsetStart = fhss() ? 0 : hs.offsetNow;
+      const loan = fhss() ? hs.value * (1 - hs.depositPct - hs.govPct) : hs.balance;
+      const base = B.payoff({ loan, rate: hs.rate, years: hs.years, offsetStart });
       const ym = n => `${Math.floor(n / 12)} yr ${n % 12} mo`;
-      const opt = (label, extra, offset) => { const r = B.payoff({ loan, rate: hs.rate, years: hs.years, extra, offset });
+      const opt = (label, extra, offset) => { const r = B.payoff({ loan, rate: hs.rate, years: hs.years, extra, offset, offsetStart });
         return `<tr><td>${label}</td><td>${ym(r.months)}</td><td>${$(base.interest - r.interest)}</td><td>${$(r.offset)}</td></tr>`; };
       return {
         emergency: rows([['Monthly costs', h.costs], ['Target', fundSize, 'total'],
           ['Time to save it', months == null ? 'Not saving' : ym(months)]]) + '<p class="note">Saving at the household savings-goal rate from the active budget.</p>',
         mortgage: `<table><tr><th></th><th>Paid off in</th><th>Interest saved</th><th>Offset built up</th></tr>
-          <tr><td>No extra</td><td>${ym(base.months)}</td><td>${$(0)}</td><td>${$(0)}</td></tr>
+          <tr><td>No extra</td><td>${ym(base.months)}</td><td>${$(0)}</td><td>${$(offsetStart)}</td></tr>
           ${opt('All to repayments', x, 0)}${opt('All to offset', 0, x)}${opt('Half each', x / 2, x / 2)}</table>
           <p class="note">An offset saves the same interest as extra repayments, but the money stays yours to use until you pay out the loan.</p>`,
       };
@@ -467,7 +491,7 @@ function backup() {
   document.getElementById('xlsx').onclick = async () => {
     try {
       const { shares } = budget(scn()); // Savings Goals per Member, as on the Savings tab
-      const saving = Object.fromEntries(S.members.map(m => [m.id, shares.filter(e => e.kind === 'saving').reduce((a, e) => a + (e.byMember[m.id] ?? 0), 0)]));
+      const saving = Object.fromEntries(S.members.map(m => [m.id, savingOf(shares, m)]));
       const res = await fetch('budget-template.xlsx');
       if (!res.ok) throw new Error(`template ${res.status}`);
       const xlsx = await fillWorkbook(new Uint8Array(await res.arrayBuffer()), workbookCells(S, saving));

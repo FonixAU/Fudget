@@ -131,10 +131,10 @@ const pmt = (loan, rate, years) => {
 };
 export const repayment = (loan, rate, years) => cents(pmt(loan, rate, years));
 // Month-by-month loan with optional extra repayments and monthly deposits into an offset account.
-// Ends when the offset can clear the balance; `offset` is the cash built up there by then.
-export function payoff({ loan, rate, years, extra = 0, offset = 0 }) {
+// Ends when the offset can clear the balance; `offset` is the cash built up there by then, from offsetStart.
+export function payoff({ loan, rate, years, extra = 0, offset = 0, offsetStart = 0 }) {
   const pay = pmt(loan, rate, years), r = rate / 12;
-  let bal = loan, off = 0, interest = 0, months = 0;
+  let bal = loan, off = offsetStart, interest = 0, months = 0;
   while (bal - off > 0.005 && months < 1200) { // half a cent absorbs float drift
     const i = Math.max(bal - off, 0) * r;
     interest += i;
