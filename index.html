@@ -2,43 +2,66 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Fudget</title>
 <style>
-  :root { color-scheme: light dark; --line: #8884; --muted: #8889; --accent: #2563eb; --bad: #dc2626; --good: #16a34a; }
+  :root { color-scheme: light dark; --line: #8884; --edge: #888; --accent: #2563eb; --bad: #dc2626; --good: #15803d; --save: #2563eb; --tint: #8881; }
+  @media (prefers-color-scheme: dark) { :root { --bad: #f87171; --good: #4ade80; --save: #60a5fa; } }
   [hidden] { display: none !important; }
-  body { margin: 0; font: 16px/1.4 system-ui, sans-serif; background: Canvas; color: CanvasText; }
-  header { position: sticky; top: 0; z-index: 1; background: Canvas; padding: 10px 16px 0; border-bottom: 1px solid var(--line); }
-  .top { display: flex; align-items: center; gap: 8px; }
-  h1 { font-size: 1.1rem; margin: 0; flex: 1; }
-  nav { display: flex; gap: 4px; overflow-x: auto; padding: 8px 0; }
-  nav button { flex: none; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: none; color: inherit; font: inherit; }
-  nav button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
-  main { padding: 8px 16px 48px; max-width: 720px; margin: auto; }
-  section { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.4 system-ui, sans-serif; background: Canvas; color: CanvasText; accent-color: var(--accent); }
+  header { position: sticky; top: 0; z-index: 2; background: Canvas; border-bottom: 1px solid var(--line); }
+  .top { display: flex; align-items: center; gap: 8px; padding: 10px 16px; max-width: 720px; margin: auto; }
+  h1 { font-size: 1.15rem; margin: 0; flex: 1; }
+  nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; background: Canvas; border-top: 1px solid var(--line);
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 6px max(8px, calc(50% - 360px)) calc(6px + env(safe-area-inset-bottom)); }
+  nav button { padding: 10px 0; border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; font-size: .82rem; }
+  nav button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+  main { padding: 8px 16px calc(88px + env(safe-area-inset-bottom)); max-width: 720px; margin: auto; }
+  section { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 12px 0; }
   h2 { font-size: 1rem; margin: 0 0 8px; display: flex; gap: 8px; align-items: center; }
-  h2 select { margin-left: auto; }
-  label { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; }
-  label > span { opacity: .8; }
-  input, select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: none; color: inherit; min-width: 0; }
+  h2 select, h2 .end { margin-left: auto; }
+  h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; opacity: .75; margin: 14px 0 4px; }
+  label { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 6px 0; min-height: 40px; }
+  label > span { opacity: .85; }
+  input, select { font: inherit; min-height: 40px; padding: 6px 8px; border: 1px solid var(--edge); border-radius: 8px; background: Canvas; color: inherit; min-width: 0; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   input[type=number] { width: 8.5em; text-align: right; }
-  input[type=checkbox] { width: 1.3em; height: 1.3em; }
-  .row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 4px; margin: 4px 0 10px; align-items: center; }
-  .row.alloc { grid-template-columns: 1fr 6em 6.5em auto; margin-bottom: 4px; }
+  input[type=checkbox] { width: 1.4em; height: 1.4em; min-height: 0; }
+  input[type=file] { border: 0; padding: 0; }
+  h2 input { font-weight: 600; flex: 1; }
+  .row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: center; }
+  .row.alloc { grid-template-columns: 1fr auto; }
   .row input[type=number] { width: 100%; }
-  .row .wide { grid-column: 1 / -1; display: flex; gap: 4px; }
+  .row .wide { grid-column: 1 / -1; display: flex; gap: 6px; }
   .row .wide > * { flex: 1; }
-  button.small { font: inherit; font-size: .85rem; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: none; color: inherit; }
+  button.small { font: inherit; font-size: .9rem; min-height: 40px; padding: 6px 14px; border: 1px solid var(--edge); border-radius: 8px; background: none; color: inherit; }
+  button.small.del { min-width: 40px; padding: 6px; }
+  button.add { width: 100%; margin-top: 10px; border-style: dashed; }
+  button.link { border: 0; background: none; color: var(--save); font: inherit; padding: 0; text-decoration: underline; }
   table { width: 100%; border-collapse: collapse; font-size: .92rem; font-variant-numeric: tabular-nums; }
-  td, th { padding: 4px 2px; text-align: right; border-bottom: 1px solid var(--line); }
+  td, th { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--line); }
   td:first-child, th:first-child { text-align: left; }
-  tr.sub td { opacity: .7; font-size: .85rem; }
-  tr.total td { font-weight: 600; }
+  th { font-size: .8rem; font-weight: 600; opacity: .8; }
+  tr.sub td { opacity: .75; font-size: .85rem; }
+  tr.total td { font-weight: 600; border-bottom: 0; }
   .neg { color: var(--bad); } .pos { color: var(--good); }
-  .note { font-size: .85rem; opacity: .7; margin: 6px 0; }
-  details > summary { cursor: pointer; font-weight: 600; padding: 2px 0; }
+  .note { font-size: .85rem; opacity: .75; margin: 6px 0; }
+  .warn { font-size: .85rem; margin: 8px 0; padding: 8px 10px; border-left: 3px solid var(--bad); background: var(--tint); }
+  .hero { background: var(--tint); }
+  .big { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--line); margin: 10px 0 6px; }
+  .bar > * { min-width: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .85rem; }
+  .legend i { display: inline-block; width: .75em; height: .75em; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .c-cost { background: var(--bad); } .c-save { background: var(--save); } .c-left { background: var(--good); }
+  details > summary { cursor: pointer; font-weight: 600; padding: 4px 0; min-height: 32px; }
   details[open] > summary { margin-bottom: 8px; }
-  .menu { display: flex; gap: 6px; flex-wrap: wrap; }
+  .menu { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 3; max-width: 480px; margin: auto;
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; background: CanvasText; color: Canvas; }
+  #toast span { flex: 1; }
+  #toast button { font: inherit; font-weight: 600; border: 0; background: none; color: inherit; text-decoration: underline; min-height: 32px; }
 </style>
 </head>
 <body>
@@ -46,10 +69,12 @@
   <div class="top">
     <h1>Fudget</h1>
     <select id="year" aria-label="Tax year"></select>
+    <button class="small" id="backup">Backup</button>
   </div>
-  <nav id="tabs"></nav>
 </header>
 <main id="view"></main>
+<nav id="tabs" aria-label="Sections"></nav>
+<div id="toast" role="status" hidden><span></span><button>Undo</button></div>
 <script type="module">
 import * as B from './budget.js';
 import { FUNDS } from './funds.js';
@@ -59,25 +84,28 @@ const KEY = 'fudget-v1';
 const CYCLES = ['weekly', 'fortnightly', 'monthly', 'quarterly', 'yearly'];
 const HORIZONS = [1, 3, 5];
 
+// A Variation's car; mode says how it reaches the budget: 'none', 'lease' (novated) or 'loan'.
+const CAR = { mode: 'none', owner: 'p1', price: 55000, kind: 'ev', years: 5, rate: 0.085, fuel: 1000, service: 500, insurance: 1600, rego: 900, fee: 500 };
+
 // Sample numbers so the app works on first open. Your own figures live only on your device.
 const DEFAULTS = {
   year: '2026-27',
   tab: 'budget',
   members: [
-    { id: 'p1', name: 'P1', salaryPackage: 90000, hecs: false, sacrifice: 0, bankStart: 10000, bankRate: 0.05, taxInterest: true, fund: 0, superStart: 0, superReturn: 0.07, show: 'monthly' },
-    { id: 'p2', name: 'P2', salaryPackage: 70000, hecs: true, sacrifice: 0, bankStart: 5000, bankRate: 0.05, taxInterest: true, fund: 0, superStart: 0, superReturn: 0.07, show: 'fortnightly' },
+    { id: 'p1', name: 'P1', salaryPackage: 90000, hecs: false, sacrifice: 0, bankStart: 10000, bankRate: 0.05, taxInterest: true, fund: 0, superStart: 0, superReturn: 0.07, packaged: 0, packagedReportable: false, show: 'monthly' },
+    { id: 'p2', name: 'P2', salaryPackage: 70000, hecs: true, sacrifice: 0, bankStart: 5000, bankRate: 0.05, taxInterest: true, fund: 0, superStart: 0, superReturn: 0.07, packaged: 0, packagedReportable: false, show: 'fortnightly' },
   ],
   active: 0,
   scenarios: [{
     name: 'Current Budget', split: 'income', pool: false, sharedIncome: 'income', withSacrifice: false,
     roommate: { mode: 'none', amount: 0, cycle: 'weekly' },
+    car: { ...CAR, mode: 'lease' },
     costs: [
       { name: 'Rent / Mortgage', owner: '', amount: 2400, cycle: 'monthly' },
       { name: 'Electricity', owner: '', amount: 115, cycle: 'monthly' },
       { name: 'Internet', owner: '', amount: 85, cycle: 'monthly' },
       { name: 'Groceries', owner: '', amount: 250, cycle: 'weekly' },
       { name: 'Phone', owner: 'p1', amount: 50, cycle: 'monthly' },
-      { name: 'Car rego', owner: 'p1', amount: 900, cycle: 'yearly' },
     ],
     allocations: [
       { name: 'General', amount: 600, kind: 'cost' },
@@ -93,8 +121,10 @@ const DEFAULTS = {
 };
 
 let S = load();
+// Fill in fields added since a budget was saved or exported.
+function upgrade(s) { for (const sc of s.scenarios) sc.car ??= structuredClone(CAR); return s; }
 function load() {
-  try { return { ...structuredClone(DEFAULTS), ...JSON.parse(localStorage.getItem(KEY)) }; } catch { return structuredClone(DEFAULTS); }
+  try { return upgrade({ ...structuredClone(DEFAULTS), ...JSON.parse(localStorage.getItem(KEY)) }); } catch { return structuredClone(DEFAULTS); }
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
 
@@ -102,7 +132,7 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {}
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const get = path => path.split('.').reduce((o, k) => o?.[k], S);
 const set = (path, v) => { const ks = path.split('.'), last = ks.pop(); ks.reduce((o, k) => o[k], S)[last] = v; };
-const $ = (n, signed) => (n = n || 0, `<span class="${signed && n < 0 ? 'neg' : ''}">${n.toLocaleString('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: n !== 0 && Math.abs(n) < 100 ? 2 : 0 })}</span>`);
+const $ = (n, signed) => (n = n || 0, `<span class="${signed && n < 0 ? 'neg' : signed === 'both' && n > 0 ? 'pos' : ''}">${n.toLocaleString('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: n !== 0 && Math.abs(n) < 100 ? 2 : 0 })}</span>`);
 const pct = n => `${(n * 100).toFixed(1)}%`;
 const opts = (list, cur) => list.map(([v, t]) => `<option value="${esc(v)}" ${String(v) === String(cur) ? 'selected' : ''}>${esc(t)}</option>`).join('');
 const num = (k, label, step = 'any') => `<label><span>${label}</span><input type="number" inputmode="decimal" step="${step}" data-k="${k}" value="${get(k) ?? 0}"></label>`;
@@ -115,7 +145,17 @@ const rows = (list, total) => `<table>${list.map(([l, v, cls = '']) => `<tr clas
 const scn = () => S.scenarios[S.active] ?? S.scenarios[0];
 const memberName = id => S.members.find(m => m.id === id)?.name ?? 'Shared';
 const fund = m => FUNDS[m.fund] ?? FUNDS[0];
-const pay = (m, withSac) => B.takeHome({ ...m, sacrifice: withSac ? m.sacrifice : 0 }, S.year);
+const GROSS_UP = 1.8868; // FBT type 2 gross-up, used for reportable fringe benefits
+const pay = (m, withSac, lease) => B.takeHome({ ...m, sacrifice: withSac ? m.sacrifice : 0,
+  preTax: (m.packaged || 0) + (lease?.preTax ?? 0), postTax: lease?.postTax ?? 0,
+  rfba: (m.packagedReportable ? (m.packaged || 0) * GROSS_UP : 0) + (lease?.rfba ?? 0) }, S.year);
+
+// A Variation's car: the lease, whose pay it comes from, and how much less that Member takes home.
+function lease(sc) {
+  const c = sc.car, m = S.members.find(x => x.id === c.owner) ?? S.members[0];
+  const l = B.novatedLease({ ...c, kind: c.price > B.RATES[S.year].lctEfficient ? 'ice' : c.kind }, S.year); // no EV relief over the LCT threshold
+  return { c, m, l, drop: pay(m, sc.withSacrifice).takeHome - pay(m, sc.withSacrifice, l).takeHome };
+}
 
 // Turn a Scenario into budget entries; Income flows from each Member's take-home pay.
 function entries(sc) {
@@ -123,6 +163,8 @@ function entries(sc) {
   const rm = sc.roommate;
   if (rm.mode === 'income') list.push({ name: 'Roommate', kind: 'income', owner: null, amount: rm.amount, cycle: rm.cycle });
   if (rm.mode === 'costs') list.push({ name: 'Roommate', kind: 'cost', owner: null, amount: -rm.amount, cycle: rm.cycle });
+  if (sc.car.mode !== 'none') { const { m, l, drop } = lease(sc);
+    list.push({ name: sc.car.mode === 'lease' ? 'Car: novated lease' : 'Car: loan + running costs', kind: 'cost', owner: m.id, amount: sc.car.mode === 'lease' ? drop : l.loanYearly, cycle: 'yearly' }); }
   for (const c of sc.costs) list.push({ ...c, kind: 'cost', owner: c.owner || null });
   for (const a of sc.allocations) list.push({ ...a, owner: null, cycle: 'monthly', alloc: true });
   return list;
@@ -138,18 +180,29 @@ const TABS = {
       ${num(`members.${i}.salaryPackage`, 'Salary package (yearly, incl. super)')}
       ${chk(`members.${i}.hecs`, 'HECS / HELP debt')}
       ${num(`members.${i}.sacrifice`, 'Salary sacrifice to super (monthly)')}
-      <div data-out="income-${i}"></div></section>`).join(''),
+      ${num(`members.${i}.packaged`, 'Other salary packaging (yearly, pre-tax)')}
+      ${m.packaged ? chk(`members.${i}.packagedReportable`, 'Reportable benefit (e.g. not-for-profit cap)') : ''}
+      <div data-out="income-${i}"></div>
+      <details data-d="bank-${i}"><summary>Bank &amp; super</summary>
+      ${num(`members.${i}.bankStart`, 'Bank balance now')}
+      ${pctIn(`members.${i}.bankRate`, 'Bank interest % p.a.')}
+      ${chk(`members.${i}.taxInterest`, 'Tax interest at marginal rate')}
+      ${sel(`members.${i}.fund`, 'Super fund', FUNDS.map((f, j) => [j, f.name]))}
+      ${fund(m).returns ? '' : pctIn(`members.${i}.superReturn`, 'Expected super return % p.a.')}
+      </details></section>`).join(''),
     out: () => Object.fromEntries(S.members.map((m, i) => {
       const a = pay(m, false), b = pay(m, true);
       const line = (label, k, sign = 1) => `<tr><td>${label}</td><td>${$(sign * a[k], true)}</td><td>${$(sign * b[k], true)}</td></tr>`;
       return [`income-${i}`, `<table><tr><th></th><th>No sacrifice</th><th>Sacrifice</th></tr>
-        ${line('Base salary', 'base')}${line('Income tax', 'tax', -1)}${line('Low income offset', 'lito')}
+        ${line('Base salary', 'base')}${m.packaged ? `<tr><td>Salary packaging</td><td>${$(-m.packaged, true)}</td><td>${$(-m.packaged, true)}</td></tr>` : ''}${line('Income tax', 'tax', -1)}${line('Low income offset', 'lito')}
         ${line('Medicare levy', 'medicare', -1)}${line('HECS / HELP', 'hecs', -1)}
         <tr class="total"><td>Take-home / year</td><td>${$(a.takeHome)}</td><td>${$(b.takeHome)}</td></tr>
         <tr class="sub"><td>per month</td><td>${$(a.takeHome / 12)}</td><td>${$(b.takeHome / 12)}</td></tr>
         <tr class="sub"><td>per fortnight</td><td>${$(a.takeHome / 26)}</td><td>${$(b.takeHome / 26)}</td></tr>
         ${line('Super in (after 15% tax)', 'superNet')}</table>
-        <p class="note">Marginal rate ${pct(B.marginalRate(b.base - m.sacrifice * 12, S.year))}. Sacrifice costs ${$((a.takeHome - b.takeHome) / 12)}/month in take-home and adds ${$((b.superNet - a.superNet) / 12)}/month to super.</p>`];
+        <p class="note">Marginal rate ${pct(B.marginalRate(b.base - m.sacrifice * 12, S.year))}. Sacrifice costs ${$((a.takeHome - b.takeHome) / 12)}/month in take-home and adds ${$((b.superNet - a.superNet) / 12)}/month to super.</p>
+        ${m.packaged ? '<p class="note">Packaged items come out of pay before tax; don\'t list them again as Costs.</p>' : ''}
+        ${(() => { const sc = scn(), L = lease(sc); return sc.car.mode === 'lease' && L.m.id === m.id ? `<p class="note">The novated lease in ${esc(sc.name)} takes ${$(L.drop)}/year from this take-home. <button class="link" data-goto="car">Car tab</button></p>` : ''; })()}`];
     })),
   },
 
@@ -178,34 +231,37 @@ const TABS = {
             <select data-k="${base}.costs.${i}.owner" aria-label="Who pays">${opts(owners, c.owner)}</select></div>
           <input type="number" inputmode="decimal" data-k="${base}.costs.${i}.amount" value="${c.amount}" aria-label="Amount">
           ${cycleSel(`${base}.costs.${i}.cycle`)}
-          <button class="small" data-act="del" data-list="${base}.costs" data-i="${i}" aria-label="Remove ${esc(c.name)}">✕</button></div>`).join('')}
-        <button class="small" data-act="add" data-list="${base}.costs">+ Add cost</button></details></section>
+          <button class="small del" data-act="del" data-list="${base}.costs" data-i="${i}" aria-label="Remove ${esc(c.name)}">✕</button></div>`).join('')}
+        <button class="small add" data-act="add" data-list="${base}.costs">+ Add cost</button></details></section>
       <section><details data-d="allocs"><summary>Monthly allocations (${sc.allocations.length})</summary>
         <p class="note">Household totals each month, split like shared costs. Spending counts as a cost, saving as a savings goal.</p>
         ${sc.allocations.map((a, i) => `<div class="row alloc">
-          <input data-k="${base}.allocations.${i}.name" value="${esc(a.name)}" aria-label="Allocation name">
+          <div class="wide"><input data-k="${base}.allocations.${i}.name" value="${esc(a.name)}" aria-label="Allocation name">
+            <select data-k="${base}.allocations.${i}.kind" aria-label="Type">${opts([['cost', 'Spending'], ['saving', 'Saving']], a.kind)}</select></div>
           <input type="number" inputmode="decimal" data-k="${base}.allocations.${i}.amount" value="${a.amount}" aria-label="Monthly amount">
-          <select data-k="${base}.allocations.${i}.kind" aria-label="Type">${opts([['cost', 'Spending'], ['saving', 'Saving']], a.kind)}</select>
-          <button class="small" data-act="del" data-list="${base}.allocations" data-i="${i}" aria-label="Remove ${esc(a.name)}">✕</button></div>`).join('')}
-        <button class="small" data-act="add" data-list="${base}.allocations">+ Add allocation</button></details></section>`;
+          <button class="small del" data-act="del" data-list="${base}.allocations" data-i="${i}" aria-label="Remove ${esc(a.name)}">✕</button></div>`).join('')}
+        <button class="small add" data-act="add" data-list="${base}.allocations">+ Add allocation</button></details></section>`;
     },
     out: () => {
       const { shares, sum } = budget(scn()), h = sum.household;
-      const household = `<section><h2>Household (monthly)</h2>${rows([
-        ['Income', h.income], ['Costs', -h.costs], ['Savings goals', -h.savings],
-        ['Left over', h.leftOver, 'total'], [`Costs + savings use ${pct((h.costs + h.savings) / (h.income || 1))} of income`, '', 'sub']])}</section>`;
+      const part = (cls, n) => `<span class="${cls}" style="flex:${Math.max(n, 0)}"></span>`;
+      const household = `<section class="hero"><div class="note">Household left over each month</div>
+        <div class="big">${$(h.leftOver, 'both')}</div>
+        <div class="bar" role="img" aria-label="Where Household Income goes">${part('c-cost', h.costs)}${part('c-save', h.savings)}${part('c-left', h.leftOver)}</div>
+        <div class="legend"><span><i class="c-cost"></i>Costs ${$(h.costs)}</span><span><i class="c-save"></i>Savings ${$(h.savings)}</span><span><i class="c-left"></i>Left over ${$(h.leftOver)}</span></div>
+        ${rows([['Income', h.income], ['Costs', -h.costs], ['Savings goals', -h.savings], ['Left over', $(h.leftOver, 'both'), 'total']])}
+        <p class="note">Costs and savings use ${pct((h.costs + h.savings) / (h.income || 1))} of Household Income.</p></section>`;
       const people = S.members.map((m, i) => {
         const show = n => B.fromMonthly(n, m.show), share = e => e.byMember[m.id] ?? 0;
         let left = shares.filter(e => e.kind === 'income').reduce((a, e) => a + share(e), 0);
         const bills = shares.filter(e => e.kind === 'cost' && !e.alloc).reduce((a, e) => a + share(e), 0);
         const lines = [['Income', show(left)], ['Bills', -show(bills)]];
         left -= bills;
-        lines.push(['Remainder', show(left), 'sub']);
-        for (const e of shares.filter(e => e.alloc)) { left -= share(e); lines.push([esc(e.name), -show(share(e))], ['Remainder', show(left), 'sub']); }
-        lines[lines.length - 1][2] = 'total';
+        for (const e of shares.filter(e => e.alloc)) { left -= share(e); lines.push([esc(e.name), -show(share(e)), 'sub']); }
+        lines.push(['Left over', $(show(left), 'both'), 'total']);
         return `<section><h2>${esc(m.name)} ${cycleSel(`members.${i}.show`)}</h2>${rows(lines)}</section>`;
       }).join('');
-      const compare = S.scenarios.length < 2 ? '' : `<section><h2>Compare variations (monthly left over)</h2><table>
+      const compare = S.scenarios.length < 2 ? '' : `<section><h2>Compare Variations (monthly left over)</h2><table>
         <tr><th></th><th>Household</th>${S.members.map(m => `<th>${esc(m.name)}</th>`).join('')}</tr>
         ${S.scenarios.map(sc => { const s = budget(sc).sum; return `<tr><td>${esc(sc.name)}</td><td>${$(s.household.leftOver, true)}</td>${S.members.map(m => `<td>${$(s.members[m.id]?.leftOver ?? 0, true)}</td>`).join('')}</tr>`; }).join('')}
       </table></section>`;
@@ -213,16 +269,49 @@ const TABS = {
     },
   },
 
+  car: {
+    title: 'Car',
+    form: () => {
+      const b = `scenarios.${S.active}.car`;
+      return `<section>${sel(`${b}.mode`, 'Count in the budget as', [['lease', 'Novated lease'], ['loan', 'Car loan'], ['none', 'No car']])}
+        <div data-out="car"></div></section>
+      <section><details data-d="car" open><summary>Car</summary>
+        ${sel(`${b}.owner`, 'Paid from', S.members.map(m => [m.id, `${m.name}'s pay`]))}
+        ${num(`${b}.price`, 'Drive-away price')}
+        ${sel(`${b}.kind`, 'Type', [['ev', 'Electric (no FBT)'], ['ev25', 'Electric over $75k, from Apr 2027'], ['ice', 'Petrol, hybrid or plug-in']])}
+        ${sel(`${b}.years`, 'Term', [1, 2, 3, 4, 5].map(y => [y, `${y} year${y > 1 ? 's' : ''}`]))}
+        ${pctIn(`${b}.rate`, 'Interest rate % p.a.')}</details></section>
+      <section><details data-d="running" open><summary>Running costs (yearly)</summary>
+        ${num(`${b}.fuel`, 'Fuel or charging')}${num(`${b}.service`, 'Servicing and tyres')}${num(`${b}.insurance`, 'Insurance')}
+        ${num(`${b}.rego`, 'Registration')}${num(`${b}.fee`, 'Lease management fee')}
+        <p class="note">In a novated lease these come out of pay before tax and GST.</p></details></section>`;
+    },
+    out: () => {
+      const sc = scn(), { c, m, l, drop } = lease(sc), per = n => B.fromMonthly(n / 12, m.show), y = +c.years;
+      const better = l.loanYearly - drop, lim = B.RATES[S.year].lctEfficient;
+      const twice = c.mode === 'none' ? [] : sc.costs.filter(x => /car|rego|fuel|petrol|insur|servic|tyre/i.test(x.name));
+      const tr = (label, a, b, cls = '') => `<tr class="${cls}"><td>${label}</td><td>${a}</td><td>${b}</td></tr>`;
+      return { car: `<div class="big ${better < 0 ? 'neg' : 'pos'}">${$(Math.abs(better))}</div>
+        <p class="note">a year ${better >= 0 ? 'better' : 'worse'} off for ${esc(m.name)} with a novated lease than a car loan</p>
+        <table><tr><th></th><th>Novated lease</th><th>Car loan</th></tr>
+        ${tr('From pay before tax', $(l.preTax), '–')}
+        ${tr('From pay after tax', $(l.postTax), $(l.loanYearly))}
+        ${tr('Take-home cost / year', $(drop), $(l.loanYearly), 'total')}
+        ${tr(`per ${{ weekly: 'week', fortnightly: 'fortnight', monthly: 'month', quarterly: 'quarter', yearly: 'year' }[m.show]}`, $(per(drop)), $(per(l.loanYearly)), 'sub')}
+        ${tr('Balloon to keep the car', $(l.payout), $(l.payout))}
+        ${tr(`Total over ${y} year${y > 1 ? 's' : ''}`, $(drop * y + l.payout), $(l.loanYearly * y + l.payout), 'total')}</table>
+        <p class="note">Lease ${$(l.payment)}/month ex GST after a ${$(l.gstCredit)} GST credit on the price. Balloon is the ATO minimum residual for ${y} year${y > 1 ? 's' : ''} (${pct(B.RESIDUALS[y])}) plus GST; the loan uses the same balloon so both end owning the car.</p>
+        ${l.rfba ? `<p class="note">No FBT, but ${$(l.rfba)} a year shows as a reportable fringe benefit: it counts toward HELP repayments (included above), the Medicare levy surcharge and some family payments.</p>` : `<p class="note">FBT is paid away with ${$(l.postTax)} a year from after-tax pay (employee contribution method).</p>`}
+        ${c.kind !== 'ice' && c.price > lim ? `<p class="warn">Over the ${$(lim)} luxury car tax threshold an electric car gets no FBT relief, so it's costed like any other car.</p>` : ''}
+        ${twice.length ? `<p class="warn">Your Budget also lists ${twice.map(x => `"${esc(x.name)}"`).join(', ')}. The car tab already covers running costs, so remove ${twice.length > 1 ? 'them' : 'it'} to avoid counting twice.</p>` : ''}` };
+    },
+  },
+
   savings: {
     title: 'Savings',
     form: () => S.members.map((m, i) => `<section><h2>${esc(m.name)}</h2>
-      ${num(`members.${i}.bankStart`, 'Bank balance now')}
-      ${pctIn(`members.${i}.bankRate`, 'Bank interest % p.a.')}
-      ${chk(`members.${i}.taxInterest`, 'Tax interest at marginal rate')}
-      ${sel(`members.${i}.fund`, 'Super fund', FUNDS.map((f, j) => [j, f.name]))}
-      ${fund(m).returns ? '' : pctIn(`members.${i}.superReturn`, 'Expected super return % p.a.')}
-      ${num(`members.${i}.sacrifice`, 'Salary sacrifice (monthly)')}
-      <div data-out="savings-${i}"></div></section>`).join('') + `<p class="note">Monthly savings come from each person's share of the active budget's savings goals (${esc(scn().name)}). Fund returns are past averages to June 2023, not a forecast.</p>`,
+      <div data-out="savings-${i}"></div></section>`).join('') + `<p class="note">Monthly savings come from each Member's share of the savings goals in ${esc(scn().name)}.
+      Balances, interest, super fund and sacrifice are set on the <button class="link" data-goto="income">Income tab</button>. Fund returns are past averages to June 2023, not a forecast.</p>`,
     out: () => Object.fromEntries(S.members.map((m, i) => {
       const { shares } = budget(scn());
       const saving = shares.filter(e => e.kind === 'saving').reduce((a, e) => a + (e.byMember[m.id] ?? 0), 0);
@@ -272,7 +361,7 @@ const TABS = {
       }, 0) + h.stocks + h.gift + h.extras - h.cushion;
       const monthly = B.repayment(loan, h.rate, h.years), income = budget(scn()).sum.household.income;
       return { house: `<section><h2>Purchase</h2>${rows([
-        ['Your deposit', deposit], ['Government contribution', gov], ['Loan', loan], ['Loan to value', pct(loan / h.value)],
+        ['Your deposit', deposit], ['Government contribution', gov], ['Loan', loan], ['Loan to value', pct(loan / h.value) + (loan / h.value > 0.8 ? ' <span class="note">(lenders usually add mortgage insurance above 80%, not included)</span>' : '')],
         ['Stamp duty (VIC)', duty], ['Transfer fee', transfer], ['Total up-front', upfront, 'total'],
         [`Cash available${y ? ` in ${y} yr` : ''}`, cash], [cash >= upfront ? 'Extra cash' : 'Missing cash', cash - upfront, 'total']])}</section>
         <section><h2>Repayments</h2>${rows([
@@ -316,8 +405,7 @@ function renderOut() {
 }
 function render() {
   document.getElementById('year').innerHTML = opts(Object.keys(B.RATES).map(y => [y, `Tax ${y}`]), S.year);
-  document.getElementById('tabs').innerHTML = Object.entries(TABS).map(([k, t]) => `<button data-tab="${k}" aria-pressed="${k === S.tab}">${t.title}</button>`).join('')
-    + '<button data-tab="data" aria-pressed="false">Backup</button>';
+  document.getElementById('tabs').innerHTML = Object.entries(TABS).map(([k, t]) => `<button data-tab="${k}" aria-pressed="${k === S.tab}">${t.title}</button>`).join('');
   view.innerHTML = TABS[S.tab].form();
   for (const d of view.querySelectorAll('details')) if (d.dataset.d in openDetails) d.open = openDetails[d.dataset.d];
   renderOut();
@@ -336,28 +424,40 @@ view.addEventListener('change', e => {
   if (el.dataset.k && el.type !== 'number') { set(el.dataset.k, read(el)); save(); render(); }
 });
 view.addEventListener('click', e => {
+  const go = e.target.closest('[data-goto]'); if (go) { S.tab = go.dataset.goto; save(); return render(); }
   const b = e.target.closest('button[data-act]'); if (!b) return;
-  const list = b.dataset.list && get(b.dataset.list);
+  const list = b.dataset.list && get(b.dataset.list), before = JSON.stringify(S);
+  if (b.dataset.act === 'del') toast(`Removed "${list[+b.dataset.i].name}"`, before);
+  if (b.dataset.act === 'delScenario') toast(`Deleted "${scn().name}"`, before);
   if (b.dataset.act === 'add') list.push(b.dataset.list.endsWith('costs') ? { name: 'New cost', owner: '', amount: 0, cycle: 'monthly' } : { name: 'New allocation', amount: 0, kind: 'saving' });
   if (b.dataset.act === 'del') list.splice(+b.dataset.i, 1);
   if (b.dataset.act === 'dupScenario') { S.scenarios.push({ ...structuredClone(scn()), name: `${scn().name} (copy)` }); S.active = S.scenarios.length - 1; }
-  if (b.dataset.act === 'delScenario' && confirm(`Delete "${scn().name}"?`)) { S.scenarios.splice(S.active, 1); S.active = 0; }
+  if (b.dataset.act === 'delScenario') { S.scenarios.splice(S.active, 1); S.active = 0; }
   save(); render();
 });
 document.getElementById('year').onchange = e => { S.year = e.target.value; save(); render(); };
 document.getElementById('tabs').onclick = e => {
   const t = e.target.closest('button')?.dataset.tab; if (!t) return;
-  if (t === 'data') return backup();
-  S.tab = t; save(); render();
+  S.tab = t; save(); render(); scrollTo(0, 0);
 };
+document.getElementById('backup').onclick = () => backup();
+
+// Deletes happen straight away; the toast offers a few seconds to take it back.
+const toastEl = document.getElementById('toast');
+let undoState, toastTimer;
+function toast(msg, before) {
+  undoState = before; toastEl.querySelector('span').textContent = msg; toastEl.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { toastEl.hidden = true; }, 6000);
+}
+toastEl.querySelector('button').onclick = () => { S = JSON.parse(undoState); toastEl.hidden = true; save(); render(); };
 
 // Everything lives in this browser; export a file to keep a copy or move it to another device.
 function backup() {
-  for (const b of document.querySelectorAll('#tabs button')) b.setAttribute('aria-pressed', b.dataset.tab === 'data');
+  for (const b of document.querySelectorAll('#tabs button')) b.setAttribute('aria-pressed', false);
   view.innerHTML = `<section><h2>Backup</h2>
     <p class="note">Your numbers are saved only in this browser. Export a file to keep a copy or move to another device.</p>
     <div class="menu"><button class="small" id="exp">Export file</button>
-    <label class="small" style="display:inline-flex"><span>Import file</span> <input type="file" id="imp" accept="application/json"></label>
+    <label><span>Import file</span> <input type="file" id="imp" accept="application/json"></label>
     <button class="small" id="reset">Reset to sample numbers</button></div></section>
     <section><h2>Spreadsheet</h2>
     <p class="note">Download your numbers in the original Budgeting + First Home Super Sacrifice workbook. Open it in Excel or upload it to Google Sheets. It uses its own formulas (2024-25 tax rules) and holds two members, the first two variations and up to 11 costs per column.</p>
@@ -378,7 +478,7 @@ function backup() {
     try {
       const data = JSON.parse(await e.target.files[0].text());
       if (!Array.isArray(data.members) || !Array.isArray(data.scenarios)) throw new Error('not a Fudget backup');
-      S = { ...structuredClone(DEFAULTS), ...data }; save(); render();
+      S = upgrade({ ...structuredClone(DEFAULTS), ...data }); save(); render();
     } catch (err) { alert(`Couldn't import: ${err.message}`); }
   };
   document.getElementById('reset').onclick = () => { if (confirm('Replace all your numbers with the sample ones?')) { S = structuredClone(DEFAULTS); save(); render(); } };

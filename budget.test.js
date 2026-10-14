@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toMonthly, fromMonthly, splitCost, summarize, takeHome, project, superFee, stampDuty, repayment, payoff, fhssRelease, marginalRate } from './budget.js';
+import { toMonthly, fromMonthly, splitCost, summarize, takeHome, project, superFee, stampDuty, repayment, payoff, fhssRelease, marginalRate, novatedLease } from './budget.js';
 
 test('toMonthly converts each Cycle to a monthly amount', () => {
   assert.deepEqual(
@@ -78,6 +78,12 @@ test('takeHome with Salary Sacrifice lowers taxable income and moves the money i
   assert.deepEqual([r.tax, r.medicare, r.hecs, r.takeHome, r.superGross, r.superNet], [18720, 1880, 4950, 68450, 18000, 15300]);
 });
 
+test('takeHome with salary packaging: pre-tax lowers taxable income, post-tax comes out after tax, reportable benefits raise HELP income', () => {
+  const r = takeHome({ salaryPackage: 112000, hecs: true, preTax: 10000, postTax: 2000, rfba: 5000 }, '2026-27');
+  // taxable 90k: tax 17,520, Medicare 1,800; HELP income 100k - 10k + 5k = 95k -> 4,200
+  assert.deepEqual([r.tax, r.medicare, r.hecs, r.takeHome, r.superGross], [17520, 1800, 4200, 64480, 12000]);
+});
+
 test('summarize with pool treats every Member\'s own Costs as Shared Costs (the sheet\'s "All Joint")', () => {
   const entries = [
     { kind: 'income', owner: 'Alex', amount: 6000, cycle: 'monthly' },
@@ -125,4 +131,30 @@ test('fhssRelease caps sacrificed contributions at $15k a year and $50k total, r
 
 test('marginalRate is the tax bracket rate a taxable income falls in', () => {
   assert.deepEqual([10000, 30000, 100000, 200000].map(i => marginalRate(i, '2026-27')), [0, 0.15, 0.3, 0.45]);
+});
+
+test('novatedLease: GST credit off the price, ATO minimum residual, payments in advance that leave exactly the residual', () => {
+  const car = { price: 55000, kind: 'ev', years: 5, rate: 0.08, fuel: 1100, service: 550, insurance: 1650, rego: 900, fee: 550 };
+  const l = novatedLease(car, '2026-27');
+  assert.equal(l.gstCredit, 5000);
+  assert.equal(l.residual, 14065); // 28.13% of the 50k financed
+  assert.equal(l.payout, 15471.5); // residual + GST
+  let bal = 50000;
+  for (let m = 0; m < 60; m++) bal = (bal - l.payment) * (1 + 0.08 / 12);
+  assert.ok(Math.abs(bal - l.residual) < 1);
+  // running costs ex GST (rego has none) + fee ex GST
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 0.1, `${a} vs ${b}`); // payment is rounded to cents
+  near(l.packageCost, l.payment * 12 + 3000 + 900 + 500);
+  near(l.loanYearly, l.loanPayment * 12 + 4200);
+});
+
+test('novatedLease: an FBT-exempt EV is all pre-tax with a reportable benefit; other cars pay FBT away post-tax (ECM)', () => {
+  const car = { price: 55000, years: 5, rate: 0.08, fuel: 1100, service: 550, insurance: 1650, rego: 900, fee: 550 };
+  const ev = novatedLease({ ...car, kind: 'ev' }, '2026-27');
+  assert.deepEqual([ev.preTax, ev.postTax, ev.rfba], [ev.packageCost, 0, 20754.8]); // 20% statutory value x 1.8868 gross-up
+  const ice = novatedLease({ ...car, kind: 'ice' }, '2026-27');
+  assert.deepEqual([ice.preTax, ice.postTax, ice.rfba], [Math.round((ice.packageCost - 10000) * 100) / 100, 11000, 0]);
+  const ev25 = novatedLease({ ...car, kind: 'ev25' }, '2026-27');
+  assert.deepEqual([ev25.postTax, ev25.rfba], [8250, 0]); // 25% FBT discount on EVs leased from April 2027 over $75k
+  assert.equal(novatedLease({ ...car, price: 110000, kind: 'ice' }, '2026-27').gstCredit, 6353); // capped at the car limit
 });
