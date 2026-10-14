@@ -158,3 +158,11 @@ test('novatedLease: an FBT-exempt EV is all pre-tax with a reportable benefit; o
   assert.deepEqual([ev25.postTax, ev25.rfba], [8250, 0]); // 25% FBT discount on EVs leased from April 2027 over $75k
   assert.equal(novatedLease({ ...car, price: 110000, kind: 'ice' }, '2026-27').gstCredit, 6353); // capped at the car limit
 });
+
+test('payoff: an existing offset balance counts against the loan from the first month', () => {
+  const loan = { loan: 400000, rate: 0.06, years: 30 };
+  const r = payoff({ ...loan, offsetStart: 50000 });
+  assert.ok(r.months < 360);
+  assert.equal(r.offset, 50000);
+  assert.equal(payoff({ ...loan, offsetStart: 400000 }).months, 0);
+});

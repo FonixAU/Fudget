@@ -74,6 +74,10 @@ _Avoid_: Bucket, envelope
 **Savings Goal**:
 A target amount to put aside, measured against Income like a Cost.
 
+**Joint Account**:
+A bank account two or more Members save into together. Its balance is entered once, and its interest is taxed equally to each Member.
+_Avoid_: Shared account, linked account
+
 **Left Over**:
 Income minus Costs and Savings Goals, for the Household or for one Member.
 _Avoid_: Surplus, remaining, balance
@@ -83,6 +87,9 @@ _Avoid_: Surplus, remaining, balance
 **Variation**:
 One complete version of the budget's Costs, Allocations and settings, compared side by side with others.
 _Avoid_: Scenario, version, budget copy
+
+**Home Stage**:
+Whether the Household is buying a first home (FHSS and the purchase count) or already owns one (its current mortgage and Offset balance count instead).
 
 **Offset**:
 Savings held against the mortgage so the balance in it attracts no interest, while staying available to withdraw.
